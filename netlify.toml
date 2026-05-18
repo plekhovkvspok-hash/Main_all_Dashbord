@@ -1,7 +1,0 @@
-[functions]
-  directory = "netlify/functions"
-
-[[headers]]
-  for = "/.netlify/functions/sheet"
-  [headers.values]
-    Cache-Control = "no-store, max-age=0"
