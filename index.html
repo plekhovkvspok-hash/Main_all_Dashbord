@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>План-график ОСС</title>
+  <link rel="stylesheet" href="oss-dashboard.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <h1>План-график ОСС</h1>
+      <p>Сроки, ресурсы, риски по собраниям и покрытие домов внедренными услугами.</p>
+    </div>
+    <div class="source-panel">
+      <button id="loadGoogleBtn" type="button">Обновить из Google Sheets</button>
+      <label class="file-btn">
+        <input id="csvFileInput" type="file" accept=".csv,text/csv">
+        Загрузить CSV ОСС
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <section class="tabs" aria-label="Разделы дашборда">
+      <button class="tab active" type="button" data-tab="oss">ОСС</button>
+      <button class="tab" type="button" data-tab="services">Услуги по домам</button>
+    </section>
+
+    <section id="notice" class="notice" hidden></section>
+
+    <section id="ossView" class="view active">
+      <section class="filters" aria-label="Фильтры ОСС">
+        <label>
+          Период с
+          <input id="dateFrom" type="date">
+        </label>
+        <label>
+          по
+          <input id="dateTo" type="date">
+        </label>
+        <label>
+          ЖК
+          <select id="complexFilter"></select>
+        </label>
+        <label>
+          Ответственный
+          <select id="ownerFilter"></select>
+        </label>
+        <label>
+          Статус
+          <select id="statusFilter"></select>
+        </label>
+        <label>
+          Поиск
+          <input id="searchInput" type="search" placeholder="МКД, вопрос, примечание">
+        </label>
+      </section>
+
+      <section class="metrics" aria-label="Сводные показатели ОСС">
+        <article><span id="totalCount">0</span><p>ОСС в выборке</p></article>
+        <article><span id="activeCount">0</span><p>В работе</p></article>
+        <article><span id="completedCount">0</span><p>Завершено</p></article>
+        <article class="risk"><span id="riskCount">0</span><p>В зоне риска</p></article>
+        <article><span id="hoursTotal">0</span><p>План часов</p></article>
+        <article><span id="resourceGap">0</span><p>Дефицит часов</p></article>
+      </section>
+
+      <section class="layout">
+        <section class="panel gantt-panel">
+          <div class="panel-title">
+            <h2>Диаграмма Ганта</h2>
+            <span id="ganttRange"></span>
+          </div>
+          <div class="legend">
+            <span><i class="status-quorum-green"></i>51%+ кворум достигнут</span>
+            <span><i class="status-quorum-orange"></i>40-50%</span>
+            <span><i class="status-quorum-yellow"></i>25-39%</span>
+            <span><i class="status-quorum-red"></i>до 24%</span>
+          </div>
+          <div id="gantt" class="gantt"></div>
+        </section>
+
+        <aside class="panel">
+          <div class="panel-title">
+            <h2>Загрузка</h2>
+            <span>по ответственным</span>
+          </div>
+          <div id="resourceList" class="resource-list"></div>
+        </aside>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">
+          <h2>Риски</h2>
+          <span id="riskSummary"></span>
+        </div>
+        <div id="riskList" class="risk-list"></div>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-title">
+          <h2>Реестр ОСС</h2>
+          <span id="rowsCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ЖК</th>
+                <th>МКД</th>
+                <th>Период</th>
+                <th>Тип</th>
+                <th>Статус</th>
+                <th>Вопросы</th>
+                <th>Часы</th>
+                <th>Ответственный</th>
+                <th>Риск</th>
+              </tr>
+            </thead>
+            <tbody id="registryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="servicesView" class="view">
+      <section class="filters services-filters" aria-label="Фильтры услуг">
+        <label>
+          ЖК
+          <select id="serviceComplexFilter"></select>
+        </label>
+        <label>
+          Услуга
+          <select id="serviceNameFilter"></select>
+        </label>
+        <label>
+          Наличие
+          <select id="serviceStateFilter">
+            <option value="all">Все дома</option>
+            <option value="has">Услуга есть</option>
+            <option value="missing">Услуги нет</option>
+            <option value="empty">Нет ни одной услуги</option>
+          </select>
+        </label>
+        <label>
+          Сортировка
+          <select id="serviceSort">
+            <option value="coverageAsc">Меньше услуг сначала</option>
+            <option value="coverageDesc">Больше услуг сначала</option>
+            <option value="complex">ЖК и МКД</option>
+            <option value="areaDesc">Площадь по убыванию</option>
+            <option value="tariffGapDesc">Разница тарифа по убыванию</option>
+          </select>
+        </label>
+        <label class="wide-filter">
+          Поиск
+          <input id="serviceSearchInput" type="search" placeholder="ЖК, дом, вопрос, исполнение">
+        </label>
+      </section>
+
+      <section class="metrics service-metrics" aria-label="Сводные показатели услуг">
+        <article><span id="serviceHouseCount">0</span><p>Домов в выборке</p></article>
+        <article><span id="serviceWithAnyCount">0</span><p>Есть хотя бы одна услуга</p></article>
+        <article class="risk"><span id="serviceEmptyCount">0</span><p>Без отмеченных услуг</p></article>
+        <article><span id="serviceCoverageAvg">0%</span><p>Среднее покрытие</p></article>
+        <article><span id="serviceAreaTotal">0</span><p>Площадь, м2</p></article>
+        <article><span id="serviceTopGap">-</span><p>Главный пробел</p></article>
+      </section>
+
+      <section class="layout service-layout">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Покрытие услугами</h2>
+            <span id="serviceCoverageSummary"></span>
+          </div>
+          <div id="serviceCoverageList" class="coverage-list"></div>
+        </section>
+
+        <aside class="panel">
+          <div class="panel-title">
+            <h2>Дома без услуги</h2>
+            <span id="serviceGapSummary"></span>
+          </div>
+          <div id="serviceGapList" class="gap-list"></div>
+        </aside>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-title">
+          <h2>Реестр домов и услуг</h2>
+          <span id="serviceRowsCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ЖК</th>
+                <th>МКД</th>
+                <th>Площадь</th>
+                <th>Тариф 2026</th>
+                <th>Предложенный</th>
+                <th>Услуги</th>
+                <th>Нет</th>
+                <th>ОСС / исполнение</th>
+              </tr>
+            </thead>
+            <tbody id="serviceRegistryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="oss-dashboard.js"></script>
+</body>
+</html>
