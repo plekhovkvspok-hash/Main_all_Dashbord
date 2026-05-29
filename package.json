@@ -1,9 +1,0 @@
-{
-  "scripts": {
-    "start": "vercel dev"
-  },
-  "dependencies": {
-    "pizzip": "^3.1.7"
-  },
-  "devDependencies": {}
-}
