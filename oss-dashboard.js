@@ -2807,13 +2807,6 @@
     return String(value || '').replace(/\s+/g, ' ').trim().toLowerCase();
   }
 
-  function fillSelect(select, values, allLabel) {
-    const selected = select.value;
-    const unique = Array.from(new Set(values)).sort((a, b) => a.localeCompare(b, 'ru'));
-    select.innerHTML = `<option value="">${allLabel}</option>` + unique.map((value) => `<option value="${escapeAttr(value)}">${escapeHtml(value)}</option>`).join('');
-    if (unique.includes(selected)) select.value = selected;
-  }
-
   function parseDate(value) {
     const raw = String(value || '').trim().toLowerCase();
     if (!raw) return null;
@@ -3449,7 +3442,11 @@
 
   function setSelectOptions(select, values, selected, emptyLabel) {
     if (!select) return '';
-    const safeValues = values.length ? values : [''];
+    const safeValues = Array.from(new Set((values || [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'ru'));
+    if (!safeValues.length) safeValues.push('');
     select.innerHTML = safeValues.map((value) => '<option value="' + escapeAttr(value) + '">' + escapeHtml(value || emptyLabel || 'Нет данных') + '</option>').join('');
     if (selected && safeValues.includes(selected)) select.value = selected;
     return select.value || safeValues[0] || '';
@@ -4034,11 +4031,17 @@
 
   function fillSelect(select, values, currentValue, emptyLabel) {
     if (!select) return '';
+    const selected = arguments.length === 3 ? select.value : currentValue;
+    const label = arguments.length === 3 ? currentValue : emptyLabel;
+    const uniqueValues = Array.from(new Set((values || [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean)))
+      .sort((a, b) => a.localeCompare(b, 'ru'));
     const options = [];
-    if (emptyLabel) options.push('<option value="">' + escapeHtml(emptyLabel) + '</option>');
-    values.forEach((value) => options.push('<option value="' + escapeAttr(value) + '">' + escapeHtml(value) + '</option>'));
+    if (label) options.push('<option value="">' + escapeHtml(label) + '</option>');
+    uniqueValues.forEach((value) => options.push('<option value="' + escapeAttr(value) + '">' + escapeHtml(value) + '</option>'));
     select.innerHTML = options.join('');
-    if (currentValue && values.includes(currentValue)) select.value = currentValue;
+    if (selected && uniqueValues.includes(selected)) select.value = selected;
     return select.value;
   }
 
