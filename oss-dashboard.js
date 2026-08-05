@@ -1629,7 +1629,7 @@
   }
 
   function populateRepairFilters(rows) {
-    fillSelect(els.repairComplexFilter, rows.map((row) => row.complex).filter(Boolean), 'Все ЖК');
+    fillSelect(els.repairComplexFilter, rows.map((row) => isKnownRepairComplex(row.complex) ? row.complex : '').filter(Boolean), 'Все ЖК');
     populateRepairDependentFilters(rows);
   }
 
@@ -1641,7 +1641,13 @@
     const currentHouse = els.repairHouseFilter.value;
     const currentYear = els.repairYearFilter.value;
     const currentMonth = els.repairMonthFilter.value;
-    fillSelect(els.repairHouseFilter, scoped.map((row) => row.house || row.address).concat(scopedFacts.map((row) => row.house || row.address)).filter(Boolean), 'Все дома');
+    fillSelect(
+      els.repairHouseFilter,
+      scoped.map((row) => cleanRepairHouseLabel(row.house || row.address))
+        .concat(scopedFacts.map((row) => cleanRepairHouseLabel(row.house || row.address)))
+        .filter(Boolean),
+      'Все дома'
+    );
     if (currentHouse && Array.from(els.repairHouseFilter.options).some((option) => option.value === currentHouse)) els.repairHouseFilter.value = currentHouse;
     const yearValues = scoped
       .map((row) => String(row.year || (row.startDate ? row.startDate.getFullYear() : '')))
@@ -1672,7 +1678,7 @@
     state.repairFiltered = state.repairRows.filter((row) => {
       if (state.regionFilter && row.region !== state.regionFilter) return false;
       if (complex && row.complex !== complex) return false;
-      if (house && (row.house || row.address) !== house) return false;
+      if (house && cleanRepairHouseLabel(row.house || row.address) !== house) return false;
       const periodDate = repairGanttDate(row) || row.startDate;
       if (year && periodDate && String(periodDate.getFullYear()) !== year) return false;
       if (year && !periodDate && row.year && String(row.year) !== year) return false;
@@ -2639,7 +2645,11 @@
     if (lower.startsWith('знак') || lower.startsWith('жк знак')) return 'Знак';
     if (lower.startsWith('елки') || lower.startsWith('ёлки')) return 'Елки';
     if (lower.startsWith('зарядное')) return 'Зарядное';
-    return raw.split(/\s+/).slice(0, 1).join(' ') || 'Без ЖК';
+    return 'Без ЖК';
+  }
+
+  function isKnownRepairComplex(value) {
+    return ['Метроград', 'Васильки', 'Точки', 'Знак', 'Елки', 'Зарядное'].includes(String(value || '').trim());
   }
 
   function knownRepairComplexByAddress(address) {
@@ -2657,7 +2667,7 @@
     const map = new Map();
     const remember = (address, complex) => {
       const normalized = normalizeRepairAddress(address);
-      if (!normalized || !complex || complex === 'Без ЖК') return;
+      if (!normalized || !isKnownRepairComplex(complex)) return;
       map.set(normalized, complex);
     };
     state.serviceRows.forEach((row) => remember(row.object, row.complex));
@@ -2698,7 +2708,34 @@
     if (complex && complex !== 'Без ЖК') {
       value = value.replace(new RegExp(`^(жк\\s+)?${escapeRegExp(complex)}\\s*`, 'i'), '').trim();
     }
-    return value || address;
+    return cleanRepairHouseLabel(value || address);
+  }
+
+  function cleanRepairHouseLabel(value) {
+    let house = String(value || '').trim();
+    if (!house) return '';
+    house = house
+      .replace(/\s+/g, ' ')
+      .replace(/^жк\s+/i, '')
+      .replace(/^ул\.?\s+/i, '')
+      .replace(/^улица\s+/i, '')
+      .replace(/(^|\s)д\.?\s*(?=\d)/gi, '$1')
+      .replace(/(^|\s)дом\s+(?=\d)/gi, '$1')
+      .replace(/^капитана\s+дорофеева\b/i, 'Дорофеева')
+      .replace(/^к\.?\s*дорофеева\b/i, 'Дорофеева')
+      .replace(/^дмитрия\s+козулева\b/i, 'Козулева')
+      .replace(/^д\.?\s*козулева\b/i, 'Козулева')
+      .replace(/^4[\s-]*(й|и|ой)\s+пятилетки\b/i, '4-й Пятилетки')
+      .trim();
+    const parts = house.split(/\s+/);
+    if (parts.length >= 3) {
+      const first = parts[0].toLowerCase().replace(/[^\da-zа-я]/gi, '');
+      const last = parts[parts.length - 1].toLowerCase().replace(/[^\da-zа-я]/gi, '');
+      if (/^\d+[а-яa-z]?$/.test(first) && first === last) {
+        house = parts.slice(1).join(' ');
+      }
+    }
+    return house.replace(/\s+/g, ' ').trim();
   }
 
   function normalizeRepairAddress(value) {
