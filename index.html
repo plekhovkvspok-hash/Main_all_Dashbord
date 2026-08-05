@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>План-график ОСС</title>
-  <link rel="stylesheet" href="oss-dashboard.css">
+  <link rel="stylesheet" href="oss-dashboard.css?v=passport-inspections-20260728">
 </head>
 <body>
   <header class="topbar">
@@ -34,6 +34,8 @@
       <button class="tab active" type="button" data-tab="oss">ОСС</button>
       <button class="tab" type="button" data-tab="services">Услуги по домам</button>
       <button class="tab" type="button" data-tab="repairs">Текущий ремонт</button>
+      <button class="tab" type="button" data-tab="passport">Цифровой паспорт</button>
+      <button class="tab" type="button" data-tab="inspections">Осмотр</button>
       <button class="tab" type="button" data-tab="documents">Документы ОСС</button>
     </section>
 
@@ -458,8 +460,185 @@
         </aside>
       </section>
     </section>
+
+    <section id="passportView" class="view">
+      <section class="filters passport-filters" aria-label="Фильтры цифрового паспорта">
+        <label>
+          ЖК
+          <select id="passportComplexFilter"></select>
+        </label>
+        <label>
+          Дом
+          <select id="passportHouseFilter"></select>
+        </label>
+        <label>
+          Система / элемент
+          <select id="passportSystemFilter"></select>
+        </label>
+        <label>
+          Риск
+          <select id="passportRiskFilter">
+            <option value="">Все риски</option>
+            <option value="red">Красный</option>
+            <option value="yellow">Желтый</option>
+            <option value="green">Зеленый</option>
+          </select>
+        </label>
+        <label class="wide-filter">
+          Поиск
+          <input id="passportSearchInput" type="search" placeholder="дом, система, дефект, работа">
+        </label>
+      </section>
+
+      <section class="metrics passport-metrics" aria-label="Показатели цифрового паспорта">
+        <article><span id="passportHouseCount">0</span><p>домов в паспорте</p></article>
+        <article class="risk"><span id="passportAccidentCount">0</span><p>аварий / дефектов</p></article>
+        <article><span id="passportRepairLinkCount">0</span><p>перенесено в ремонт</p></article>
+        <article class="risk"><span id="passportRedCount">0</span><p>красных зон</p></article>
+        <article><span id="passportPredictiveCount">0</span><p>сигналов инженеру</p></article>
+      </section>
+
+      <section class="layout passport-layout">
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Цифровой след дома</h2>
+            <span id="passportSummary">осмотры, аварии и ремонты</span>
+          </div>
+          <div id="passportSystemCards" class="passport-system-grid"></div>
+        </section>
+        <aside class="panel">
+          <div class="panel-title">
+            <h2>На что обратить внимание</h2>
+            <span>предиктивное обслуживание</span>
+          </div>
+          <div id="passportAttentionList" class="passport-attention-list"></div>
+        </aside>
+      </section>
+
+      <section class="panel table-panel">
+        <div class="panel-title">
+          <h2>События паспорта</h2>
+          <span id="passportRowsCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Дата</th>
+                <th>ЖК</th>
+                <th>Дом</th>
+                <th>Система</th>
+                <th>Дефект / событие</th>
+                <th>Риск</th>
+                <th>Ремонт</th>
+              </tr>
+            </thead>
+            <tbody id="passportRegistryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="inspectionsView" class="view">
+      <section class="panel inspection-panel">
+        <div class="panel-title">
+          <h2>Осмотр</h2>
+          <span>акт осмотра, фото, голос, дефект, перенос в ремонт</span>
+        </div>
+        <div class="inspection-form">
+          <label>
+            Тип осмотра
+            <select id="inspectionType">
+              <option value="Текущий">Текущий</option>
+              <option value="Аварийный">Аварийный</option>
+              <option value="Сезонный">Сезонный</option>
+            </select>
+          </label>
+          <label>
+            ЖК
+            <select id="inspectionComplex"></select>
+          </label>
+          <label>
+            Дом
+            <select id="inspectionHouse"></select>
+          </label>
+          <label>
+            Система / группа элементов
+            <select id="inspectionSystem"></select>
+          </label>
+          <label>
+            Элемент
+            <input id="inspectionElement" type="text" placeholder="например: кровля, стояк ГВС, фасад, ливневка">
+          </label>
+          <label>
+            Инженер
+            <input id="inspectionEngineer" type="text" placeholder="ФИО инженера">
+          </label>
+          <label>
+            Дата осмотра
+            <input id="inspectionDate" type="date">
+          </label>
+          <label>
+            Объем
+            <input id="inspectionVolume" type="number" min="0" step="0.01" placeholder="например 35">
+          </label>
+          <label>
+            Ед. изм.
+            <input id="inspectionUnit" type="text" placeholder="кв.м., м.п., шт.">
+          </label>
+          <label>
+            Срочность
+            <select id="inspectionSeverity">
+              <option value="green">Планово</option>
+              <option value="yellow">Наблюдать / включить в план</option>
+              <option value="red">Срочно / риск аварии</option>
+            </select>
+          </label>
+          <label class="wide-filter">
+            Что установлено на момент осмотра
+            <textarea id="inspectionDefect" placeholder="Опишите дефект: где, что произошло, последствия, почему важно устранить"></textarea>
+          </label>
+          <label class="wide-filter">
+            Что нужно сделать
+            <textarea id="inspectionRepairAction" placeholder="Какая работа нужна, какие материалы, ориентировочные объемы"></textarea>
+          </label>
+          <label class="file-btn inspection-file-btn">
+            <input id="inspectionPhotoInput" type="file" accept="image/*" multiple>
+            Фото дефекта
+          </label>
+          <button id="inspectionVoiceBtn" type="button">Голосовой ввод</button>
+          <button id="saveInspectionBtn" type="button">Сохранить осмотр</button>
+          <button id="clearInspectionFormBtn" type="button">Очистить форму</button>
+        </div>
+        <div id="inspectionPhotoPreview" class="inspection-photo-preview"></div>
+      </section>
+
+      <section class="metrics inspection-metrics" aria-label="Показатели осмотров">
+        <article><span id="inspectionTotalCount">0</span><p>осмотров</p></article>
+        <article class="risk"><span id="inspectionEmergencyCount">0</span><p>аварийных</p></article>
+        <article><span id="inspectionOpenCount">0</span><p>новых / в работе</p></article>
+        <article><span id="inspectionRepairCreatedCount">0</span><p>перенесено в ремонт</p></article>
+      </section>
+
+      <section class="layout inspection-layout">
+        <section class="panel table-panel">
+          <div class="panel-title">
+            <h2>Справочник осмотров МКД</h2>
+            <span id="inspectionRowsCount"></span>
+          </div>
+          <div id="inspectionCards" class="inspection-card-list"></div>
+        </section>
+        <aside class="panel">
+          <div class="panel-title">
+            <h2>Статусы</h2>
+            <span>быстрый контроль</span>
+          </div>
+          <div id="inspectionStatusList" class="passport-attention-list"></div>
+        </aside>
+      </section>
+    </section>
   </main>
 
-  <script src="oss-dashboard.js"></script>
+  <script src="oss-dashboard.js?v=passport-inspections-20260728"></script>
 </body>
 </html>

@@ -39,6 +39,23 @@
     { key: 'kgk', label: 'КГК', patterns: [/крупно/, /кгк/] },
   ];
 
+  const inspectionSystemDefinitions = [
+    'Кровля',
+    'Фасад и конструктив',
+    'Подъезд / МОП',
+    'Придомовая территория',
+    'Центральное отопление',
+    'ГВС',
+    'ХВС',
+    'Водоотведение / канализация',
+    'Электрооборудование',
+    'Вентиляция',
+    'Лифты',
+    'Подвалы',
+    'Чердаки',
+    'Иное',
+  ];
+
   const defaultQuestionLibrary = [
     {
       category: 'Текущий ремонт',
@@ -106,6 +123,9 @@
     approvedEstimates: loadApprovedEstimates(),
     ownersRows: [],
     ownersErrors: [],
+    inspections: loadInspections(),
+    inspectionPhotosDraft: [],
+    passportFiltered: [],
     ossTemplates: loadOssTemplates(),
     questionLibrary: loadQuestionLibrary(),
     questionSelections: loadQuestionSelections(),
@@ -117,6 +137,8 @@
     servicesView: document.getElementById('servicesView'),
     repairsView: document.getElementById('repairsView'),
     documentsView: document.getElementById('documentsView'),
+    passportView: document.getElementById('passportView'),
+    inspectionsView: document.getElementById('inspectionsView'),
     loadGoogleBtn: document.getElementById('loadGoogleBtn'),
     csvFileInput: document.getElementById('csvFileInput'),
     notice: document.getElementById('notice'),
@@ -208,6 +230,45 @@
     ownersPreviewSummary: document.getElementById('ownersPreviewSummary'),
     ownersPreviewBody: document.getElementById('ownersPreviewBody'),
     ownersErrorsList: document.getElementById('ownersErrorsList'),
+    passportComplexFilter: document.getElementById('passportComplexFilter'),
+    passportHouseFilter: document.getElementById('passportHouseFilter'),
+    passportSystemFilter: document.getElementById('passportSystemFilter'),
+    passportRiskFilter: document.getElementById('passportRiskFilter'),
+    passportSearchInput: document.getElementById('passportSearchInput'),
+    passportHouseCount: document.getElementById('passportHouseCount'),
+    passportAccidentCount: document.getElementById('passportAccidentCount'),
+    passportRepairLinkCount: document.getElementById('passportRepairLinkCount'),
+    passportRedCount: document.getElementById('passportRedCount'),
+    passportPredictiveCount: document.getElementById('passportPredictiveCount'),
+    passportSummary: document.getElementById('passportSummary'),
+    passportSystemCards: document.getElementById('passportSystemCards'),
+    passportAttentionList: document.getElementById('passportAttentionList'),
+    passportRowsCount: document.getElementById('passportRowsCount'),
+    passportRegistryBody: document.getElementById('passportRegistryBody'),
+    inspectionType: document.getElementById('inspectionType'),
+    inspectionComplex: document.getElementById('inspectionComplex'),
+    inspectionHouse: document.getElementById('inspectionHouse'),
+    inspectionSystem: document.getElementById('inspectionSystem'),
+    inspectionElement: document.getElementById('inspectionElement'),
+    inspectionEngineer: document.getElementById('inspectionEngineer'),
+    inspectionDate: document.getElementById('inspectionDate'),
+    inspectionVolume: document.getElementById('inspectionVolume'),
+    inspectionUnit: document.getElementById('inspectionUnit'),
+    inspectionSeverity: document.getElementById('inspectionSeverity'),
+    inspectionDefect: document.getElementById('inspectionDefect'),
+    inspectionRepairAction: document.getElementById('inspectionRepairAction'),
+    inspectionPhotoInput: document.getElementById('inspectionPhotoInput'),
+    inspectionVoiceBtn: document.getElementById('inspectionVoiceBtn'),
+    saveInspectionBtn: document.getElementById('saveInspectionBtn'),
+    clearInspectionFormBtn: document.getElementById('clearInspectionFormBtn'),
+    inspectionPhotoPreview: document.getElementById('inspectionPhotoPreview'),
+    inspectionTotalCount: document.getElementById('inspectionTotalCount'),
+    inspectionEmergencyCount: document.getElementById('inspectionEmergencyCount'),
+    inspectionOpenCount: document.getElementById('inspectionOpenCount'),
+    inspectionRepairCreatedCount: document.getElementById('inspectionRepairCreatedCount'),
+    inspectionRowsCount: document.getElementById('inspectionRowsCount'),
+    inspectionCards: document.getElementById('inspectionCards'),
+    inspectionStatusList: document.getElementById('inspectionStatusList'),
   };
 
   init();
@@ -219,6 +280,10 @@
     end.setMonth(end.getMonth() + 5);
     els.dateFrom.value = toInputDate(start);
     els.dateTo.value = toInputDate(end);
+    if (els.inspectionDate) els.inspectionDate.value = toInputDate(today);
+    populateInspectionSelectors();
+    applyPassportFilters();
+    renderInspections();
 
     els.tabs.forEach((tab) => tab.addEventListener('click', () => switchTab(tab.dataset.tab)));
     document.querySelectorAll('[data-metric-filter]').forEach((card) => {
@@ -245,6 +310,7 @@
       applyOssFilters();
       applyServiceFilters();
       applyRepairFilters();
+      applyPassportFilters();
       renderRegionDataGaps();
     });
     els.csvFileInput.addEventListener('change', loadOssFromFile);
@@ -273,6 +339,17 @@
       .forEach((el) => el.addEventListener('input', applyServiceFilters));
     [els.repairComplexFilter, els.repairHouseFilter, els.repairYearFilter, els.repairMonthFilter, els.repairStatusFilter, els.repairBudgetFilter, els.repairSort, els.repairSearchInput]
       .forEach((el) => el.addEventListener('input', applyRepairFilters));
+    [els.passportComplexFilter, els.passportHouseFilter, els.passportSystemFilter, els.passportRiskFilter, els.passportSearchInput]
+      .filter(Boolean)
+      .forEach((el) => el.addEventListener('input', applyPassportFilters));
+    [els.inspectionComplex, els.inspectionHouse]
+      .filter(Boolean)
+      .forEach((el) => el.addEventListener('input', populateInspectionSelectors));
+    if (els.inspectionPhotoInput) els.inspectionPhotoInput.addEventListener('change', loadInspectionPhotos);
+    if (els.saveInspectionBtn) els.saveInspectionBtn.addEventListener('click', saveInspectionFromForm);
+    if (els.clearInspectionFormBtn) els.clearInspectionFormBtn.addEventListener('click', clearInspectionForm);
+    if (els.inspectionVoiceBtn) els.inspectionVoiceBtn.addEventListener('click', startInspectionVoiceInput);
+    document.addEventListener('click', handleInspectionActionClick);
     document.addEventListener('click', (event) => {
       const actButton = event.target.closest('[data-act-id]');
       if (actButton) {
@@ -427,7 +504,11 @@
     els.servicesView.classList.toggle('active', tabName === 'services');
     els.repairsView.classList.toggle('active', tabName === 'repairs');
     if (els.documentsView) els.documentsView.classList.toggle('active', tabName === 'documents');
+    if (els.passportView) els.passportView.classList.toggle('active', tabName === 'passport');
+    if (els.inspectionsView) els.inspectionsView.classList.toggle('active', tabName === 'inspections');
     if (tabName === 'documents') renderOssDocumentsModule();
+    if (tabName === 'passport') applyPassportFilters();
+    if (tabName === 'inspections') renderInspections();
   }
 
 
@@ -1249,9 +1330,13 @@
     const rows = parseRepairPlan(planText, budgetRows, planSheetTitle);
     state.repairFactRows = factRows;
     attachRepairFacts(rows, factRows);
-    state.repairRows = rows.concat(buildFactOnlyRepairRows(factRows, rows, budgetRows, planSheetTitle));
+    state.repairRows = rows
+      .concat(buildFactOnlyRepairRows(factRows, rows, budgetRows, planSheetTitle))
+      .concat(loadInspectionRepairRows());
     attachRepairHouseAreas(state.repairRows);
     populateRepairFilters(state.repairRows);
+    populateInspectionSelectors();
+    applyPassportFilters();
     populateGlobalRegionFilter();
     renderRegionDataGaps();
     applyRepairFilters();
@@ -3857,6 +3942,428 @@
     downloadWordDoc('bulletin_OSS_' + safeFileName(row.house || row.address) + '.doc', 'Бюллетень ОСС', body);
   }
 
+  function loadInspections() {
+    try {
+      const raw = localStorage.getItem('house-inspections');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn('Не удалось загрузить осмотры', error);
+      return [];
+    }
+  }
+
+  function saveInspections() {
+    try {
+      localStorage.setItem('house-inspections', JSON.stringify(state.inspections || []));
+    } catch (error) {
+      showNotice('Не удалось сохранить осмотр: браузерное хранилище переполнено. Уменьшите количество фото.');
+    }
+  }
+
+  function loadInspectionRepairRows() {
+    try {
+      const raw = localStorage.getItem('inspection-repair-rows');
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+      console.warn('Не удалось загрузить ремонты из осмотров', error);
+      return [];
+    }
+  }
+
+  function saveInspectionRepairRows(rows) {
+    try {
+      localStorage.setItem('inspection-repair-rows', JSON.stringify(rows || []));
+    } catch (error) {
+      console.warn('Не удалось сохранить ремонт из осмотра', error);
+    }
+  }
+
+  function inspectionBaseRows() {
+    const rows = [];
+    state.serviceRows.forEach((row) => rows.push({
+      complex: row.complex,
+      house: row.object || row.house || row.address,
+      address: row.object || row.house || row.address,
+      region: row.region,
+      area: row.area,
+    }));
+    state.repairRows.forEach((row) => rows.push({
+      complex: row.complex,
+      house: row.house || row.address,
+      address: row.house || row.address,
+      region: row.region,
+      area: row.houseArea,
+    }));
+    state.inspections.forEach((row) => rows.push({
+      complex: row.complex,
+      house: row.house,
+      address: row.house,
+      region: row.region,
+      area: row.area,
+    }));
+    const byKey = new Map();
+    rows.forEach((row) => {
+      const key = normalizeRepairAddress(row.house || row.address);
+      if (!key) return;
+      if (!byKey.has(key)) byKey.set(key, row);
+      if (row.complex && !byKey.get(key).complex) byKey.get(key).complex = row.complex;
+      if (row.area && !byKey.get(key).area) byKey.get(key).area = row.area;
+    });
+    return Array.from(byKey.values());
+  }
+
+  function populateInspectionSelectors() {
+    const baseRows = inspectionBaseRows();
+    const complexes = uniqSorted(baseRows.map((row) => row.complex).filter(Boolean));
+    const currentInspectionComplex = els.inspectionComplex ? els.inspectionComplex.value : '';
+    const currentPassportComplex = els.passportComplexFilter ? els.passportComplexFilter.value : '';
+    if (els.inspectionComplex) fillSelect(els.inspectionComplex, complexes, currentInspectionComplex, 'Выберите ЖК');
+    if (els.passportComplexFilter) fillSelect(els.passportComplexFilter, complexes, currentPassportComplex, 'Все ЖК');
+
+    const inspectionComplex = els.inspectionComplex ? els.inspectionComplex.value : '';
+    const passportComplex = els.passportComplexFilter ? els.passportComplexFilter.value : '';
+    const inspectionHouses = uniqSorted(baseRows.filter((row) => !inspectionComplex || row.complex === inspectionComplex).map((row) => row.house || row.address).filter(Boolean));
+    const passportHouses = uniqSorted(baseRows.filter((row) => !passportComplex || row.complex === passportComplex).map((row) => row.house || row.address).filter(Boolean));
+    if (els.inspectionHouse) fillSelect(els.inspectionHouse, inspectionHouses, els.inspectionHouse.value, 'Выберите дом');
+    if (els.passportHouseFilter) fillSelect(els.passportHouseFilter, passportHouses, els.passportHouseFilter.value, 'Все дома');
+    if (els.inspectionSystem) fillSelect(els.inspectionSystem, inspectionSystemDefinitions, els.inspectionSystem.value || inspectionSystemDefinitions[0], '');
+    if (els.passportSystemFilter) fillSelect(els.passportSystemFilter, inspectionSystemDefinitions, els.passportSystemFilter.value, 'Все системы');
+  }
+
+  function fillSelect(select, values, currentValue, emptyLabel) {
+    if (!select) return '';
+    const options = [];
+    if (emptyLabel) options.push('<option value="">' + escapeHtml(emptyLabel) + '</option>');
+    values.forEach((value) => options.push('<option value="' + escapeAttr(value) + '">' + escapeHtml(value) + '</option>'));
+    select.innerHTML = options.join('');
+    if (currentValue && values.includes(currentValue)) select.value = currentValue;
+    return select.value;
+  }
+
+  function loadInspectionPhotos(event) {
+    const files = Array.from(event.target.files || []).slice(0, 8);
+    if (!files.length) return;
+    state.inspectionPhotosDraft = [];
+    let loaded = 0;
+    files.forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.inspectionPhotosDraft.push({ name: file.name, src: reader.result });
+        loaded += 1;
+        renderInspectionPhotoPreview();
+        if (loaded === files.length) showNotice('Фото дефекта загружены: ' + loaded + '.');
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderInspectionPhotoPreview() {
+    if (!els.inspectionPhotoPreview) return;
+    if (!state.inspectionPhotosDraft.length) {
+      els.inspectionPhotoPreview.innerHTML = '<div class="empty-state">Фото дефекта пока не загружены.</div>';
+      return;
+    }
+    els.inspectionPhotoPreview.innerHTML = state.inspectionPhotosDraft.map((photo) =>
+      '<figure><img src="' + escapeAttr(photo.src) + '" alt="' + escapeAttr(photo.name) + '"><figcaption>' + escapeHtml(photo.name) + '</figcaption></figure>'
+    ).join('');
+  }
+
+  function saveInspectionFromForm() {
+    if (!els.inspectionHouse || !els.inspectionHouse.value) {
+      showNotice('Выберите дом для осмотра.');
+      return;
+    }
+    const inspection = {
+      id: Date.now(),
+      type: els.inspectionType.value,
+      complex: els.inspectionComplex.value,
+      house: els.inspectionHouse.value,
+      system: els.inspectionSystem.value,
+      element: els.inspectionElement.value.trim(),
+      engineer: els.inspectionEngineer.value.trim(),
+      date: els.inspectionDate.value || toInputDate(today),
+      volume: parseNumber(els.inspectionVolume.value),
+      unit: els.inspectionUnit.value.trim(),
+      severity: els.inspectionSeverity.value,
+      defect: els.inspectionDefect.value.trim(),
+      repairAction: els.inspectionRepairAction.value.trim(),
+      photos: state.inspectionPhotosDraft.slice(),
+      status: 'Новый',
+      repairCreated: false,
+    };
+    state.inspections.unshift(inspection);
+    saveInspections();
+    clearInspectionForm(false);
+    populateInspectionSelectors();
+    applyPassportFilters();
+    renderInspections();
+    showNotice('Осмотр сохранен и добавлен в цифровой паспорт дома.');
+  }
+
+  function clearInspectionForm(clearNotice = true) {
+    [els.inspectionElement, els.inspectionEngineer, els.inspectionVolume, els.inspectionUnit, els.inspectionDefect, els.inspectionRepairAction]
+      .filter(Boolean)
+      .forEach((input) => { input.value = ''; });
+    if (els.inspectionDate) els.inspectionDate.value = toInputDate(today);
+    if (els.inspectionSeverity) els.inspectionSeverity.value = 'green';
+    if (els.inspectionType) els.inspectionType.value = 'Текущий';
+    state.inspectionPhotosDraft = [];
+    if (els.inspectionPhotoInput) els.inspectionPhotoInput.value = '';
+    renderInspectionPhotoPreview();
+    if (clearNotice) showNotice('Форма осмотра очищена.');
+  }
+
+  function startInspectionVoiceInput() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      showNotice('Голосовой ввод не поддерживается этим браузером. Можно надиктовать в телефон и вставить текст вручную.');
+      return;
+    }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'ru-RU';
+    recognition.interimResults = false;
+    recognition.onstart = () => showNotice('Слушаю инженера. После паузы текст попадет в описание дефекта.');
+    recognition.onresult = (event) => {
+      const text = Array.from(event.results).map((result) => result[0].transcript).join(' ');
+      els.inspectionDefect.value = [els.inspectionDefect.value.trim(), text].filter(Boolean).join('\n');
+      showNotice('Голосовой текст добавлен в осмотр.');
+    };
+    recognition.onerror = () => showNotice('Не удалось распознать голос. Попробуйте еще раз или внесите текст вручную.');
+    recognition.start();
+  }
+
+  function handleInspectionActionClick(event) {
+    const actButton = event.target.closest('[data-inspection-act-id]');
+    if (actButton) {
+      openInspectionAct(Number(actButton.dataset.inspectionActId));
+      return;
+    }
+    const repairButton = event.target.closest('[data-inspection-repair-id]');
+    if (repairButton) {
+      transferInspectionToRepair(Number(repairButton.dataset.inspectionRepairId));
+    }
+  }
+
+  function applyPassportFilters() {
+    if (!els.passportRegistryBody) return;
+    populateInspectionSelectors();
+    const complex = els.passportComplexFilter ? els.passportComplexFilter.value : '';
+    const house = els.passportHouseFilter ? els.passportHouseFilter.value : '';
+    const system = els.passportSystemFilter ? els.passportSystemFilter.value : '';
+    const risk = els.passportRiskFilter ? els.passportRiskFilter.value : '';
+    const query = els.passportSearchInput ? els.passportSearchInput.value.trim().toLowerCase() : '';
+    state.passportFiltered = state.inspections.filter((row) => {
+      if (complex && row.complex !== complex) return false;
+      if (house && row.house !== house) return false;
+      if (system && row.system !== system) return false;
+      if (risk && row.severity !== risk) return false;
+      if (query) {
+        const haystack = [row.complex, row.house, row.system, row.element, row.defect, row.repairAction, row.engineer].join(' ').toLowerCase();
+        if (!haystack.includes(query)) return false;
+      }
+      return true;
+    });
+    renderPassport();
+  }
+
+  function renderPassport() {
+    const rows = state.passportFiltered || [];
+    const houses = new Set(rows.map((row) => normalizeRepairAddress(row.house)).filter(Boolean));
+    const red = rows.filter((row) => row.severity === 'red').length;
+    const accidents = rows.filter((row) => row.type === 'Аварийный' || row.severity === 'red').length;
+    const linked = rows.filter((row) => row.repairCreated).length;
+    const predictive = passportPredictiveItems(rows).length;
+    if (els.passportHouseCount) els.passportHouseCount.textContent = houses.size;
+    if (els.passportAccidentCount) els.passportAccidentCount.textContent = accidents;
+    if (els.passportRepairLinkCount) els.passportRepairLinkCount.textContent = linked;
+    if (els.passportRedCount) els.passportRedCount.textContent = red;
+    if (els.passportPredictiveCount) els.passportPredictiveCount.textContent = predictive;
+    if (els.passportRowsCount) els.passportRowsCount.textContent = rows.length + ' событий';
+    if (els.passportSummary) els.passportSummary.textContent = rows.length ? 'видно, где аварии превращаются в ремонт' : 'пока нет событий';
+    renderPassportSystemCards(rows);
+    renderPassportAttention(rows);
+    renderPassportRegistry(rows);
+  }
+
+  function passportPredictiveItems(rows) {
+    const map = new Map();
+    rows.forEach((row) => {
+      const key = [normalizeRepairAddress(row.house), row.system].join('|');
+      const item = map.get(key) || { house: row.house, system: row.system, count: 0, red: 0, last: row.date };
+      item.count += 1;
+      if (row.severity === 'red') item.red += 1;
+      if (row.date > item.last) item.last = row.date;
+      map.set(key, item);
+    });
+    return Array.from(map.values())
+      .filter((item) => item.count >= 2 || item.red > 0)
+      .sort((a, b) => b.red - a.red || b.count - a.count);
+  }
+
+  function renderPassportSystemCards(rows) {
+    if (!els.passportSystemCards) return;
+    const bySystem = new Map();
+    inspectionSystemDefinitions.forEach((system) => bySystem.set(system, { system, count: 0, red: 0, linked: 0 }));
+    rows.forEach((row) => {
+      const item = bySystem.get(row.system) || { system: row.system || 'Иное', count: 0, red: 0, linked: 0 };
+      item.count += 1;
+      if (row.severity === 'red') item.red += 1;
+      if (row.repairCreated) item.linked += 1;
+      bySystem.set(item.system, item);
+    });
+    const cards = Array.from(bySystem.values()).filter((item) => item.count);
+    els.passportSystemCards.innerHTML = cards.length ? cards.map((item) => {
+      const cls = item.red ? 'danger' : item.count >= 2 ? 'warning' : 'ok';
+      return '<article class="passport-system-card ' + cls + '"><strong>' + escapeHtml(item.system) + '</strong>'
+        + '<span>' + item.count + ' событий</span>'
+        + '<small>красных: ' + item.red + ' · в ремонт: ' + item.linked + '</small></article>';
+    }).join('') : '<div class="empty-state">Нет событий по выбранному дому или системе.</div>';
+  }
+
+  function renderPassportAttention(rows) {
+    if (!els.passportAttentionList) return;
+    const items = passportPredictiveItems(rows);
+    els.passportAttentionList.innerHTML = items.length ? items.slice(0, 12).map((item) =>
+      '<div class="attention-item ' + (item.red ? 'danger' : 'warning') + '"><strong>' + escapeHtml(item.house) + '</strong>'
+      + '<span>' + escapeHtml(item.system) + ': ' + item.count + ' событий, красных ' + item.red + '</span>'
+      + '<small>Рекомендация: проверить повторяемость дефекта и включить в план предупредительных работ.</small></div>'
+    ).join('') : '<div class="empty-state">Критичных повторов пока нет.</div>';
+  }
+
+  function renderPassportRegistry(rows) {
+    if (!els.passportRegistryBody) return;
+    els.passportRegistryBody.innerHTML = rows.map((row) => '<tr>'
+      + '<td>' + escapeHtml(formatDate(parseInputDate(row.date)) || row.date) + '</td>'
+      + '<td>' + escapeHtml(row.complex || '') + '</td>'
+      + '<td>' + escapeHtml(row.house || '') + '</td>'
+      + '<td>' + escapeHtml(row.system || '') + '</td>'
+      + '<td><strong>' + escapeHtml(row.element || row.type || '') + '</strong><br><span class="muted">' + escapeHtml(row.defect || row.repairAction || '') + '</span></td>'
+      + '<td>' + inspectionRiskPill(row.severity) + '</td>'
+      + '<td>' + (row.repairCreated ? '<span class="status-text ok">создан</span>' : '<span class="status-text muted">нет</span>') + '</td>'
+      + '</tr>').join('');
+  }
+
+  function renderInspections() {
+    if (!els.inspectionCards) return;
+    const rows = state.inspections || [];
+    const emergency = rows.filter((row) => row.type === 'Аварийный' || row.severity === 'red').length;
+    const linked = rows.filter((row) => row.repairCreated).length;
+    if (els.inspectionTotalCount) els.inspectionTotalCount.textContent = rows.length;
+    if (els.inspectionEmergencyCount) els.inspectionEmergencyCount.textContent = emergency;
+    if (els.inspectionOpenCount) els.inspectionOpenCount.textContent = rows.length - linked;
+    if (els.inspectionRepairCreatedCount) els.inspectionRepairCreatedCount.textContent = linked;
+    if (els.inspectionRowsCount) els.inspectionRowsCount.textContent = rows.length + ' осмотров';
+    els.inspectionCards.innerHTML = rows.length ? rows.map(renderInspectionCard).join('') : '<div class="empty-state">Осмотров пока нет. Заполните форму выше и сохраните первый обход.</div>';
+    renderInspectionStatusList(rows);
+    renderInspectionPhotoPreview();
+  }
+
+  function renderInspectionCard(row) {
+    const photos = (row.photos || []).slice(0, 4).map((photo) => '<img src="' + escapeAttr(photo.src) + '" alt="' + escapeAttr(photo.name || 'Фото дефекта') + '">').join('');
+    return '<article class="inspection-card ' + row.severity + '">'
+      + '<div class="inspection-card-head"><div><strong>' + escapeHtml(row.house || '') + '</strong><span>' + escapeHtml(row.type || '') + ' · ' + escapeHtml(row.system || '') + ' · ' + escapeHtml(formatDate(parseInputDate(row.date)) || row.date) + '</span></div>' + inspectionRiskPill(row.severity) + '</div>'
+      + '<p><strong>' + escapeHtml(row.element || 'Элемент не указан') + '</strong></p>'
+      + '<p>' + escapeHtml(row.defect || 'Описание дефекта не заполнено') + '</p>'
+      + '<p class="muted">Что сделать: ' + escapeHtml(row.repairAction || 'не указано') + '</p>'
+      + '<p class="muted">Объем: ' + escapeHtml(row.volume ? formatNumber(row.volume) : '-') + ' ' + escapeHtml(row.unit || '') + ' · инженер: ' + escapeHtml(row.engineer || '-') + '</p>'
+      + (photos ? '<div class="inspection-card-photos">' + photos + '</div>' : '')
+      + '<div class="inspection-card-actions"><button type="button" data-inspection-act-id="' + row.id + '">Акт осмотра</button>'
+      + '<button type="button" data-inspection-repair-id="' + row.id + '"' + (row.repairCreated ? ' disabled' : '') + '>' + (row.repairCreated ? 'В ремонте' : 'В текущий ремонт') + '</button></div>'
+      + '</article>';
+  }
+
+  function renderInspectionStatusList(rows) {
+    if (!els.inspectionStatusList) return;
+    const stats = [
+      { label: 'Новые', value: rows.filter((row) => !row.repairCreated).length, cls: 'warning' },
+      { label: 'Срочно', value: rows.filter((row) => row.severity === 'red').length, cls: 'danger' },
+      { label: 'Перенесено в ремонт', value: rows.filter((row) => row.repairCreated).length, cls: 'ok' },
+      { label: 'С фото', value: rows.filter((row) => row.photos && row.photos.length).length, cls: 'ok' },
+    ];
+    els.inspectionStatusList.innerHTML = stats.map((item) =>
+      '<div class="attention-item ' + item.cls + '"><strong>' + item.value + '</strong><span>' + escapeHtml(item.label) + '</span></div>'
+    ).join('');
+  }
+
+  function inspectionRiskPill(severity) {
+    const labels = { red: 'Срочно', yellow: 'Наблюдать', green: 'Планово' };
+    const cls = severity === 'red' ? 'status-risk' : severity === 'yellow' ? 'status-quorum-yellow' : 'status-done';
+    return '<span class="pill ' + cls + '">' + escapeHtml(labels[severity] || 'Планово') + '</span>';
+  }
+
+  function transferInspectionToRepair(id) {
+    const inspection = state.inspections.find((row) => row.id === id);
+    if (!inspection) return;
+    const repairRows = loadInspectionRepairRows();
+    const exists = repairRows.some((row) => row.inspectionId === id);
+    if (!exists) {
+      const repairRow = {
+        id: 900000000 + id,
+        inspectionId: id,
+        source: 'inspection',
+        complex: inspection.complex,
+        house: inspection.house,
+        houseKey: normalizeRepairAddress(inspection.house),
+        address: inspection.house,
+        region: detectRegion([inspection.house, inspection.complex].join(' ')),
+        workType: inspection.repairAction || inspection.defect || inspection.element || 'Работа по результатам осмотра',
+        deadlineRaw: 'по осмотру',
+        startDate: parseInputDate(inspection.date) || today,
+        statusKey: inspection.severity === 'red' ? 'progress' : 'new',
+        status: inspection.severity === 'red' ? 'В процессе' : 'Не начато / нет информации',
+        plannedCost: 0,
+        estimateTotal: 0,
+        budgetRisk: inspection.severity === 'red',
+        budget: null,
+        unit: inspection.unit,
+        volume: inspection.volume,
+        notes: inspection.defect,
+      };
+      repairRows.unshift(repairRow);
+      saveInspectionRepairRows(repairRows);
+      state.repairRows.unshift(repairRow);
+    }
+    inspection.repairCreated = true;
+    inspection.status = 'В текущем ремонте';
+    saveInspections();
+    populateRepairFilters(state.repairRows);
+    applyRepairFilters();
+    applyPassportFilters();
+    renderInspections();
+    showNotice('Дефект перенесен в раздел "Текущий ремонт".');
+  }
+
+  function openInspectionAct(id) {
+    const row = state.inspections.find((item) => item.id === id);
+    if (!row) return;
+    const photos = (row.photos || []).map((photo) => '<figure><img src="' + escapeAttr(photo.src) + '" alt="' + escapeAttr(photo.name || '') + '"><figcaption>' + escapeHtml(photo.name || 'Фото дефекта') + '</figcaption></figure>').join('');
+    const html = '<!doctype html><html lang="ru"><head><meta charset="utf-8"><title>Акт осмотра</title><style>'
+      + 'body{font-family:Arial,sans-serif;margin:0;background:#eef2f7;color:#111827}.sheet{width:210mm;min-height:297mm;margin:20px auto;background:#fff;padding:18mm;box-shadow:0 2px 10px #0002}.toolbar{position:sticky;top:0;background:#fff;border-bottom:1px solid #d8e0ea;padding:10px;display:flex;gap:8px}.toolbar button{padding:8px 12px;border:1px solid #9bb7d8;border-radius:7px;background:#f5f9ff;font-weight:700}h1{text-align:center;font-size:22px}table{width:100%;border-collapse:collapse;margin:12px 0}td,th{border:1px solid #111;padding:7px;vertical-align:top}.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.photos img{width:100%;max-height:90mm;object-fit:cover;border:1px solid #d8e0ea}.sign{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:30px}.line{border-bottom:1px solid #111;height:28px}@media print{body{background:#fff}.toolbar{display:none}.sheet{box-shadow:none;margin:0}}'
+      + '</style></head><body><div class="toolbar"><button onclick="window.print()">Печать / PDF</button></div><main class="sheet">'
+      + '<h1>АКТ ОСМОТРА ВЫЯВЛЕННОГО ДЕФЕКТА</h1>'
+      + '<table><tbody>'
+      + '<tr><th>Дата</th><td>' + escapeHtml(formatDate(parseInputDate(row.date)) || row.date) + '</td><th>Тип</th><td>' + escapeHtml(row.type || '') + '</td></tr>'
+      + '<tr><th>ЖК</th><td>' + escapeHtml(row.complex || '') + '</td><th>Дом</th><td>' + escapeHtml(row.house || '') + '</td></tr>'
+      + '<tr><th>Система</th><td>' + escapeHtml(row.system || '') + '</td><th>Элемент</th><td>' + escapeHtml(row.element || '') + '</td></tr>'
+      + '<tr><th>Инженер</th><td>' + escapeHtml(row.engineer || '') + '</td><th>Срочность</th><td>' + escapeHtml(row.severity === 'red' ? 'Срочно' : row.severity === 'yellow' ? 'Наблюдать' : 'Планово') + '</td></tr>'
+      + '<tr><th>Объем</th><td colspan="3">' + escapeHtml(row.volume ? formatNumber(row.volume) : '-') + ' ' + escapeHtml(row.unit || '') + '</td></tr>'
+      + '<tr><th>Установлено</th><td colspan="3">' + escapeHtml(row.defect || '') + '</td></tr>'
+      + '<tr><th>Рекомендованные работы</th><td colspan="3">' + escapeHtml(row.repairAction || '') + '</td></tr>'
+      + '</tbody></table>'
+      + '<h2>Фото дефекта ДО</h2><div class="photos">' + (photos || '<p>Фото не приложены.</p>') + '</div>'
+      + '<div class="sign"><div><p>Инженер</p><div class="line"></div></div><div><p>Ответственный представитель</p><div class="line"></div></div></div>'
+      + '</main></body></html>';
+    const win = window.open('', '_blank');
+    if (!win) {
+      showNotice('Браузер заблокировал окно акта. Разрешите всплывающие окна.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+  }
+
   function downloadTextFile(fileName, content, type) {
     const blob = new Blob([content], { type });
     const link = document.createElement('a');
@@ -3871,6 +4378,12 @@
       .replace(/[\\/:*?"<>|]+/g, '_')
       .replace(/\s+/g, '_')
       .slice(0, 140);
+  }
+
+  function parseNumber(value) {
+    const normalized = String(value || '').replace(/\s+/g, '').replace(',', '.');
+    const number = Number(normalized);
+    return Number.isFinite(number) ? number : 0;
   }
 
   function showNotice(message) {
